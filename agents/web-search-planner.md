@@ -22,9 +22,7 @@ Save `plan.md` before finishing. Do not implement the plan unless explicitly ask
 
 Work extremely thoroughly, see a plan fully through. There is no one cleaning up after you, what you write gets implemented so you must ensure it's actually PROVEN to be coherent. 
 
-Plans should always attack problems at the very root, and implementation should always be done at the root this means don't build ontop of a weak foundation, if something requires a redesign alltogether after your thorough analysis that includes extensive web searching, and code reading, so be it. 
-
-If you need to redesign something large at the root, do not write `plan.md` — escalate to the main agent with findings and what must change. The main agent spawns a fresh planner with your report.
+Plans should always attack problems at the very root, and implementation should always be done at the root this means don't build ontop of a weak foundation, if something requires a redesign alltogether after your thorough analysis that includes extensive web searching, and code reading, so be it.
 
 See `/workflow` Wave Close heuristics for `Close:` criteria.
 

@@ -46,26 +46,61 @@ research (optional) → plan → plan close (optional) → execute
 
 | Path | Agents |
 |------|--------|
-| Bug | investigator → plan-closer → implementer(s) → wave-closer only when ultra-critical (rare) |
+| Bug (in-framework) | investigator → plan-closer → implementer(s) → wave-closer only when ultra-critical (rare) |
+| Bug (foundation redesign) | redesign-investigator → plan-closer → implementer(s) → wave-closer only when ultra-critical (rare) |
 | Feature | researcher when external lookup is central, else skip → planner → plan-closer → implementer(s) → wave-closer only when ultra-critical (rare) |
+| Redesign | researcher when external facts for that domain are central, else skip → redesign-planner → plan-closer → implementer(s) → wave-closer only when ultra-critical (rare) |
 | Existing closed plan | implementer per wave only — user says implement or plan already reviewed |
 
-Default plan-closer after planner or investigator. Skip only when the user explicitly says no plan review or the plan was already closed this session.
+Default plan-closer after planner, redesign-planner, investigator, or redesign-investigator. Skip only when the user explicitly says no plan review or the plan was already closed this session.
+
+## Plan routing
+
+Pick one planning agent before Execution step 3.
+
+### Bug work
+
+`web-search-investigator` when the fix fits inside the settled framework: trace symptoms, test hypotheses, plan waves that repair or replace modules without redefining the system model.
+
+`web-search-redesign-investigator` when bug or failure diagnosis requires rethinking the broken foundation: the correct fix redefines entities, states, boundaries, or invariants for that surface (architecture, pipeline, protocol, data model, API, infra, UX, or other), not bolt-on patches on today's shape.
+
+Default when ambiguous on bugs: `web-search-investigator`. Bug foundation redesign is higher blast radius; require explicit or strongly inferable foundation-wrong signals (user language, prior implementer return, or investigation showing the model itself is wrong).
+
+### Non-bug work
+
+`web-search-redesign-planner` when the job is to define what SHOULD be and then land it in this codebase, not to extend the current shape:
+
+- User language: full redesign, ground up, from scratch, rethink, rebase, new model, don't bolt onto what exists, replace not patch, greenfield for this surface.
+- Scope redefines the system model for any domain: architecture, pipeline, protocol, data model, API, infra, UX, or other.
+- Prior plan or implementer return says the foundation is wrong for the stated intent (conceptual mismatch, not a missing wire).
+
+`web-search-planner` when:
+
+- Spec or intent already fits the existing architecture and patterns.
+- Incremental feature, extension, refactor-in-place, performance fix, or integration inside settled boundaries.
+- User names concrete behavior inside the current model without asking to rethink the model.
+- Technical planning only (API choice, module split, wiring) with no foundation redesign.
+
+Default when ambiguous on features: `web-search-planner`. Redesign is higher blast radius; require explicit or strongly inferable redesign intent.
+
+Research before any planner or investigator: dispatch `web-search-researcher` when external facts for that domain are central. Skip when the agent can finish from intent, brief references, and the repo.
 
 ## Agents
 
-Spawn by `name` from `~/.claude/agents/` (Claude) or `~/.codex/agents/` (Codex). Pass a narrow dispatch prompt — topic dir, output file path, intent, boundaries, no nested agents unless this is planner/investigator and a researcher is blocking-needed. Not this skill, not agent file internals.
+Spawn by `name` from `~/.claude/agents/` (Claude) or `~/.codex/agents/` (Codex). Pass a narrow dispatch prompt — topic dir, output file path, intent, boundaries, no nested agents unless this is planner/redesign-planner/investigator/redesign-investigator and a researcher is blocking-needed. Not this skill, not agent file internals.
 
 | Agent | Output |
 |-------|--------|
 | `web-search-researcher` | `research.md` |
-| `web-search-investigator` | `plan.md` |
-| `web-search-planner` | `plan.md` |
+| `web-search-investigator` | `plan.md` (investigation plan shape) |
+| `web-search-redesign-investigator` | `plan.md` (redesign investigation plan shape) |
+| `web-search-planner` | `plan.md` (feature plan shape) |
+| `web-search-redesign-planner` | `plan.md` (redesign feature plan shape) |
 | `web-search-plan-closer` | edited `plan.md` |
 | `web-search-implementer` | changed paths |
 | `web-search-wave-closer` | changed paths |
 
-Prefer dedicated `web-search-` agents over ad-hoc native subagents for orchestrated work. Workers do not nest agents — nesting policy lives in host `rules/subagents.md`. Only planner/investigator may spawn `web-search-researcher` when blocking; implementer/closer/researcher never spawn.
+Prefer dedicated `web-search-` agents over ad-hoc native subagents for orchestrated work. Workers do not nest agents — nesting policy lives in host `rules/subagents.md`. Only planner, redesign-planner, investigator, and redesign-investigator may spawn `web-search-researcher` when blocking; implementer/closer/researcher never spawn.
 
 ## Persistence and long runs
 
@@ -92,19 +127,33 @@ Implementers default to `opus` `medium` (or `sonnet` `medium` for mechanical wav
 | `opus` | `high` | Bounded repo read — one module, one stack. |
 | `opus` | `xhigh` | Cross-stack synthesis across multiple modules or subsystems. |
 
-### `web-search-planner` — `plan.md` only
+### `web-search-planner` (feature `plan.md`)
 
 | Model | Effort | Use |
 |-------|--------|-----|
 | `opus` | `high` | Default. Most plans — small through foundational / high-blast-radius when high reasoning covers the surface. |
 | `opus` | `xhigh` | Extreme reasoning load — dense cross-stack deps, costly missed edges, architecture that still needs deep reconciling after high. (<97% of cases)|
 
-### `web-search-investigator` — `plan.md` only
+### `web-search-redesign-planner` (redesign `plan.md`)
+
+| Model | Effort | Use |
+|-------|--------|-----|
+| `opus` | `high` | Default. Same bar as planner. |
+| `opus` | `xhigh` | Extreme reasoning load: dense cross-surface target model, costly missed edges. (<97% of cases)|
+
+### `web-search-investigator` (investigation `plan.md`)
 
 | Model | Effort | Use |
 |-------|--------|-----|
 | `opus` | `high` | Default. Routine through delicate — localized or foundational bugs when high reasoning covers the root. |
 | `opus` | `xhigh` | Extreme reasoning load — concurrency, parsing, multi-root, or high-blast surfaces where high still under-reasons. (<97% of cases)|
+
+### `web-search-redesign-investigator` (redesign investigation `plan.md`)
+
+| Model | Effort | Use |
+|-------|--------|-----|
+| `opus` | `high` | Default. Same bar as investigator. |
+| `opus` | `xhigh` | Extreme reasoning load: broken foundation spans multiple surfaces or high-blast target model. (<97% of cases)|
 
 ### `web-search-plan-closer` — edits `plan.md`, Opus only
 
@@ -153,7 +202,7 @@ Codex sessions use `model_reasoning_effort` defaults from `~/.codex/agents/*.tom
 
 1. Parse intent — pick `<topic>`, create `plans/active/<topic>/`.
 2. Research — `web-search-researcher` → `research.md` when external lookup is central; else skip → wait.
-3. Plan — planner or investigator → `plan.md`; pass `research.md` if step 2 ran → wait.
+3. Plan — planner, redesign-planner, investigator, or redesign-investigator per Plan routing → `plan.md`; pass `research.md` if step 2 ran → wait.
 4. Plan close — `web-search-plan-closer`; pass `plan.md` and `research.md` if present → wait. Escalation → see Escalation.
 5. Hold — user asked research/plan only or hold execution → report artifact paths and stop.
 6. Implement — read `## Waves` only. The waves form a dependency graph; `Depends on` lines are its edges. Dispatch the entire ready set in one message (write scopes preferred-disjoint by contract; indirect overlap is allowed), one implementer per wave, quoting wave title + scope. Briefs must not assign long-running shell commands — those stay in this session via worker `command handoffs`. On each return, harvest and dispatch in the same turn: execute any long-running command handoff (run + monitor as specified), never re-run worker tests or short checks, then route gaps per Persistence and long runs — resume the wave's implementer for a small appendix, fresh fixup otherwise — and launch every newly-ready wave. Never idle while ready work exists; a fixup blocks only waves that depend on it.
@@ -162,16 +211,16 @@ Codex sessions use `model_reasoning_effort` defaults from `~/.codex/agents/*.tom
 
 Work blocks only on its own prerequisites — a wave never waits for unrelated agents to finish. Research → plan → plan close stay sequential; implementation runs greedy over the graph, continuous unlock, no wave barriers.
 
-Treat `plan.md` as the execution contract after plan closer. Do not patch artifacts in the main session; malformed after plan closer → re-dispatch planner or investigator.
+Treat `plan.md` as the execution contract after plan closer. Do not patch artifacts in the main session; malformed after plan closer → re-dispatch the same agent type that wrote it.
 
 Commit, stage, or push only when the user explicitly asks.
 
 ## Escalation
 
-Planner, investigator, plan closer, or wave closer may return findings instead of their primary output when the foundation needs root redesign.
+A planning agent or plan closer may return findings instead of a usable plan when the brief cannot be planned honestly (missing facts, contradictory research, or contract failure).
 
-1. Stop — no implementers on a bad foundation.
-2. Fresh `web-search-planner` with findings quoted verbatim.
+1. Stop — no implementers on a bad plan.
+2. Re-dispatch the same agent type with findings quoted verbatim. Only switch type when Plan routing shows the original dispatch was the wrong choice for user intent.
 3. Plan closer again.
 4. Implement only after plan closer passes.
 
@@ -180,7 +229,6 @@ Tell the user when scope materially changes.
 ## Dispatch prompts
 
 Intent quoted or scoped; `plans/active/<topic>/`; prior artifact paths to read; boundaries; done-when; `model` and `effort` set explicitly per Model routing. Expected return: artifact path for writers, changed paths for implementers/closers, findings on escalation.
-
 Pass user-provided evidence — screenshots, logs, error dumps, repro files — to the receiving agent verbatim, by path or attachment. Never pre-read, summarize, or interpret it in the main session first: interpretation loses signal and biases the specialist. Point at the raw file and let the agent read it.
 
 Workers run synchronously: a return that leaves a build, loop, or sweep running in the background is a defect — the scope is not free, and dispatching a successor into it races the orphaned process. Before re-dispatching into a scope after such a return, confirm the process is dead.

@@ -1,10 +1,11 @@
 # Plan Contract
 
-Machine-wide shape for `plan.md`. Planners and investigators write to this contract. The orchestrator treats `plan.md` as the execution contract: a dependency graph of waves, one `web-search-implementer` per wave, dispatched greedily as dependencies land; `web-search-wave-closer` only for ultra-critical waves (~5%) per `/orchestrator`.
+Machine-wide shape for `plan.md`. Planners, redesign planners, investigators, and redesign investigators write to this contract. The orchestrator treats `plan.md` as the execution contract: a dependency graph of waves, one `web-search-implementer` per wave, dispatched greedily as dependencies land; `web-search-wave-closer` only for ultra-critical waves (~5%) per `/orchestrator`.
 
 ## Shape
 
 - Wave-centric. The `## Waves` section is the body of the plan.
+- Redesign plans add a bounded `## Conceptual reading` before `## Waves`. The wave graph remains the execution body.
 - Waves are graph nodes. `Depends on` lines are the edges — real producer→consumer dependencies only (B cannot start until A's outputs exist). False edges serialize the graph; anything not downstream of an unfinished wave dispatches in parallel.
 - Maximize parallelism. Do not add `Depends on` to avoid indirect or read-only overlap — that overlap is fine. Serialize only for hard write conflicts or true data dependencies.
 - Few, large waves. A wave is one implementer's substantial logical chunk — a domain/surface slice with real work, not a step or checklist item. Prefer fewer, larger waves over a fine graph. Merge anything that would always ship together; split only on a hard write conflict or a true dependency.
@@ -52,20 +53,93 @@ Blocking only.
 ## Out of scope
 ```
 
+`web-search-planner` writes this shape.
+
+## Redesign feature plan shape
+
+Same `## Waves` block and trailing sections as the feature plan. Insert `## Conceptual reading` after `## Intent`, before `## Context`. `web-search-redesign-planner` writes this shape for any ground-up redesign (architecture, pipeline, protocol, data model, API, infra, UX, or other).
+
+```markdown
+# <Topic>
+
+## Intent
+What we are redesigning, why, and how we know the new shape is done.
+
+## Conceptual reading
+Bounded target model only: dense bullets, no prose essay. Answer only:
+- Target model: entities, states, transitions, boundaries, and invariants
+- What the current design must not keep
+- Alternatives considered: what transfers and what we refuse (comparables optional; only when useful for this domain)
+- Deletion/replace stance (what from the old shape must not survive)
+
+No file paths. No current-code dump. No API or repo transcripts (pointer in Context). Long evidence lives in `research.md`; keep takeaways here.
+
+Hard bound: at most 40 bullets total across all sub-bullets. Cut scope or move evidence to `research.md` if you need more.
+
+## Context
+Pointers only: `research.md`, relevant subsystems, constraints.
+
+## Decision
+Chosen target model and what we ruled out (including bolt-on and extend-current options).
+
+## Waves
+...
+```
+
 ## Investigation plan shape
 
-Same `## Waves` block. Replace Intent/Context/Decision with:
+Same `## Waves` block and trailing sections as the feature plan. Replace Intent/Context/Decision with:
 
 ```markdown
 ## Symptoms
 ## Leading theory
 ## Hypotheses ruled out
 ## Waves
+...
+```
+
+`web-search-investigator` writes this shape.
+
+## Redesign investigation plan shape
+
+Same `## Waves` block and trailing sections. Replace Intent/Context/Decision with investigation headers, then insert bounded `## Conceptual reading` after `## Hypotheses ruled out`, before `## Waves`. `web-search-redesign-investigator` writes this shape when bug or failure diagnosis requires redefining the broken foundation (any domain).
+
+```markdown
+# <Topic>
+
+## Symptoms
+What fails, where, and how we reproduce or observe it.
+
+## Leading theory
+Current best explanation and evidence.
+
+## Hypotheses ruled out
+What we tested and rejected.
+
+## Conceptual reading
+Bounded target model only: dense bullets, no prose essay. Answer only:
+- Target model: entities, states, transitions, boundaries, and invariants
+- What the current design must not keep
+- Alternatives considered: what transfers and what we refuse (comparables optional; only when useful for this domain)
+- Deletion/replace stance (what from the old shape must not survive)
+
+No file paths. No current-code dump. No API or repo transcripts (pointer in wave Context if needed). Long evidence lives in `research.md`; keep takeaways here.
+
+Hard bound: at most 40 bullets total across all sub-bullets. Cut scope or move evidence to `research.md` if you need more.
+
+## Waves
+...
 ```
 
 ## Anti-patterns
 
-- Architecture essays before waves
+- Unbounded architecture or product essays before waves (redesign plans use bounded `## Conceptual reading` per redesign feature plan shape, not an exception to the wave-centric body)
+- Redesign plans that jump to `## Waves` without `## Conceptual reading`
+- Redesign `## Conceptual reading` that inventories the current codebase instead of stating the target model
+- Waves in a redesign plan that only extend today's shape without tracing to Conceptual reading
+- Redesign investigation plans without `## Conceptual reading`
+- Redesign investigation `## Conceptual reading` that inventories the current codebase instead of stating the target model
+- Waves in a redesign investigation plan that do not trace to Conceptual reading
 - Executive summaries restating the waves — the waves are the summary
 - Long "current system" dumps, evidence tables, or API-verification transcripts that belong in `research.md` — a pointer, not a copy
 - Provenance front-matter (commit SHAs, clone paths, investigation dates)
@@ -85,6 +159,6 @@ Same `## Waves` block. Replace Intent/Context/Decision with:
 
 Workspace: `plans/active/<topic>/plan.md` per `~/.claude/contracts/artifacts.md`.
 
-Malformed plans after plan closer (missing `## Waves`, waves without disjoint scope or done-when) → re-dispatch planner/investigator.
+Which planning agent writes which shape is orchestrator Plan routing only. Agents do not escalate into a different planning type.
 
-Root-redesign escalation → fresh planner with findings → plan closer → implement.
+Malformed plans after plan closer (missing `## Waves`, waves without disjoint scope or done-when) → re-dispatch the same agent type that wrote it.

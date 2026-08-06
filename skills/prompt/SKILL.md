@@ -32,7 +32,7 @@ Post the prompt in chat as a single fenced code block the user can copy. One lin
 
 ## Orchestrator framing
 
-Convey in a few short prose paragraphs: orchestrator; `plans/active/<topic>/`; hold after plan-closer if user asked plan/research only; optional researcher when external lookup is central → planner → plan-closer → implementers; wave-closer only for ultra-critical waves (~5%); set `model` and `effort` per `/orchestrator` Model routing; follow `/orchestrator` and `~/.claude/agents/`. If starter invoked `/research`, load it — not part of default orchestrator.
+Convey in a few short prose paragraphs: orchestrator; `plans/active/<topic>/`; hold after plan-closer if user asked plan/research only; optional researcher when external lookup is central → planner, redesign-planner, investigator, or redesign-investigator per `/orchestrator` Plan routing → plan-closer → implementers; wave-closer only for ultra-critical waves (~5%); set `model` and `effort` per `/orchestrator` Model routing; follow `/orchestrator` and `~/.claude/agents/`. If starter invoked `/research`, load it — not part of default orchestrator.
 
 The receiving session does not need twenty imperatives — it needs its role, where the contract lives, and what kind of agent management is expected.
 

@@ -24,6 +24,4 @@ Save `plan.md` before finishing. Do not implement unless explicitly asked. Do no
 
 Work extremely thoroughly, don't stop at the first issue you find, always see an analysis fully through. Investigate extremely deeply, go down all paths, and always attack the root of problems.
 
-If the fix needs root redesign beyond an honest `plan.md`, do not write `plan.md` — escalate to the main agent with findings and what must change. The main agent spawns a fresh planner with your report.
-
 See `/workflow` Wave Close heuristics for `Close:` criteria.

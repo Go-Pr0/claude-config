@@ -62,7 +62,7 @@ Do not prescribe report shape. Do not pre-read or summarize evidence files — p
 
 Dispatch `web-search-planner` with topic dir, all `surface-*.md` paths, `surfaces.md`, output `plan.md`. Brief: read every surface report; group findings by section or theme; write a wave-centric `plan.md` per `~/.claude/contracts/plan.md` (or Codex twin). Batch hard — few large waves that a handful of implementers can own (merge same theme/section; never emit a fine graph of ~30 micro-waves when ~7 substantial slices would suffice). Maximize parallelism only for real independence; `Depends on` only for producer→consumer or hard write conflicts. Set `model` and `effort` per `/orchestrator` Model routing. Wait.
 
-Planner escalates with findings instead of `plan.md` when the foundation needs root redesign beyond an honest plan — stop, fresh planner with findings, then closer.
+Planner returns findings instead of `plan.md` only when the brief cannot be planned honestly. Stop, re-dispatch the same type with findings (or switch type only per `/orchestrator` Plan routing), then closer.
 
 ## Phase 4 — Plan close
 
@@ -92,7 +92,7 @@ Planner, plan closer, implementer, wave closer: follow `/orchestrator` Model rou
 
 ## Escalation
 
-Stop implementers on a bad foundation. Fresh planner with findings quoted verbatim → plan closer → implement only after closer passes. Tell the user when scope materially changes.
+Stop implementers on a bad plan. Re-dispatch the same planning agent with findings quoted verbatim (switch type only per `/orchestrator` Plan routing) → plan closer → implement only after closer passes. Tell the user when scope materially changes.
 
 ## Dispatch prompts
 

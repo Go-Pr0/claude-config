@@ -1,11 +1,11 @@
 ---
 name: workflow
-description: Execution checklists for planner, investigator, implementer, plan closer, and wave closer — surface prep, orchestrator boundaries, wave-close heuristics, and wave discipline. Loaded by those agents via agent frontmatter.
+description: Execution checklists for planner, redesign-planner, investigator, redesign-investigator, implementer, plan closer, and wave closer — surface prep, orchestrator boundaries, wave-close heuristics, and wave discipline. Loaded by those agents via agent frontmatter.
 ---
 
 # Workflow
 
-Execution guidance for planner, investigator, implementer, plan closer, wave closer, and orchestrator boundaries. Project contracts and standards live in the repo (and `~/.claude/contracts/` when present) — ports, invariants, gates, and First-reads indexes. This skill holds execution checklists beyond that.
+Execution guidance for planner, redesign-planner, investigator, redesign-investigator, implementer, plan closer, wave closer, and orchestrator boundaries. Project contracts and standards live in the repo (and `~/.claude/contracts/` when present) — ports, invariants, gates, and First-reads indexes. This skill holds execution checklists beyond that.
 
 ## Surface prep
 
@@ -19,7 +19,7 @@ Assign visual, runtime, or integration verification only when explicitly needed;
 
 ## Nested agents
 
-Do not spawn subagents. Exception — planner and investigator only: may spawn `web-search-researcher` when external facts are blocking and you cannot finish without them. Never spawn implementers, closers, planners, reviewers, or ad-hoc natives. Implementer, plan closer, wave closer, researcher, and reviewer: never spawn anyone (researcher included — no researcher→researcher) — do the work yourself or escalate to the main session.
+Do not spawn subagents. Exception — planner, redesign-planner, investigator, and redesign-investigator only: may spawn `web-search-researcher` when external facts are blocking and you cannot finish without them. Never spawn implementers, closers, planners, reviewers, or ad-hoc natives. Implementer, plan closer, wave closer, researcher, and reviewer: never spawn anyone (researcher included — no researcher→researcher) — do the work yourself or escalate to the main session.
 
 ## Wave Close heuristics
 
@@ -35,6 +35,8 @@ Whether a closer runs is consumer policy, not this skill: personal `/orchestrato
 - Small, reviewable changes. No generated/temp files in source unless the plan requires them.
 - Implementer ships the wave slice; patch prior-wave gaps when the dispatch says so. Wave closer only when the orchestrator dispatches one.
 
-## Plan graph (planner / investigator / plan closer)
+## Plan graph (planner / redesign-planner / investigator / redesign-investigator / plan closer)
 
 Maximize parallelism: few large flat waves, no sub-waves or nested IDs. `Depends on` only for true producer→consumer or hard write conflicts — never to dodge indirect overlap. Merge undersized or always-together waves; cut false edges.
+
+Non-bug ground-up redesign: orchestrator dispatches `web-search-redesign-planner`. Bug foundation redesign: `web-search-redesign-investigator`. Shapes live in `~/.claude/contracts/plan.md`. Agents do not escalate into a different planning type.

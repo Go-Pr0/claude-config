@@ -11,7 +11,7 @@ Canonical workspace and lifecycle for work artifacts in every repo. Skills and a
 | File | Writer | Contract |
 |------|--------|----------|
 | `research.md` | `web-search-researcher` | `~/.claude/contracts/research.md` |
-| `plan.md` | `web-search-planner` or `web-search-investigator` | `~/.claude/contracts/plan.md` |
+| `plan.md` | `web-search-planner`, `web-search-redesign-planner`, `web-search-investigator`, or `web-search-redesign-investigator` | `~/.claude/contracts/plan.md` |
 
 Two files is the whole default layout. Extended layouts stay under the same topic dir:
 

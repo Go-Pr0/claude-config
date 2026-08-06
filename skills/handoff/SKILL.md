@@ -43,7 +43,7 @@ Post the prompt in chat as a single fenced code block the user can copy. One lin
 
 ## Orchestrator framing
 
-Convey in a few short prose paragraphs: orchestrator continuing this topic; `plans/active/<topic>/`; resume from the recorded phase — do not restart research, plan, or plan-close when those artifacts already stand; optional researcher when external lookup is still central and not yet done → planner → plan-closer → implementers as the graph requires from here; wave-closer only for ultra-critical waves (~5%); set `model` and `effort` per `/orchestrator` Model routing; follow `/orchestrator` and `~/.claude/agents/`. If this session was on `/research`, say so — load it and continue that pipeline.
+Convey in a few short prose paragraphs: orchestrator continuing this topic; `plans/active/<topic>/`; resume from the recorded phase — do not restart research, plan, or plan-close when those artifacts already stand; optional researcher when external lookup is still central and not yet done → planner, redesign-planner, investigator, or redesign-investigator per `/orchestrator` Plan routing → plan-closer → implementers as the graph requires from here; wave-closer only for ultra-critical waves (~5%); set `model` and `effort` per `/orchestrator` Model routing; follow `/orchestrator` and `~/.claude/agents/`. If this session was on `/research`, say so — load it and continue that pipeline.
 
 The receiving session does not need twenty imperatives — it needs its role, where the contracts live, how this run was being managed, what is already done, and what to do next.
 
