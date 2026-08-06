@@ -20,7 +20,7 @@ ide/
 
 # Daemon / jobs / tasks
 daemon/
-daemon.*
+daemon*
 jobs/
 tasks/
 *.lock
