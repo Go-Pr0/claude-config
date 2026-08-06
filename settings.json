@@ -1,0 +1,62 @@
+{
+  "permissions": {
+    "defaultMode": "auto"
+  },
+  "model": "sonnet",
+  "skillOverrides": {
+    "memory-promote": "user-invocable-only",
+    "orchestrator": "user-invocable-only",
+    "research": "user-invocable-only",
+    "workflow": "name-only",
+    "prompt": "user-invocable-only",
+    "handoff": "user-invocable-only",
+    "explain": "user-invocable-only",
+    "review": "user-invocable-only",
+    "audit": "user-invocable-only",
+    "autonomous-sprint": "off",
+    "deep-research": "off"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "jq -r '.tool_response.filePath // .tool_input.file_path' | { read -r f; case \"$f\" in *.ts|*.tsx|*.js|*.jsx|*.json|*.css) npx biome format --write \"$f\" ;; esac; } 2>/dev/null || true",
+            "timeout": 30,
+            "statusMessage": "Formatting with Biome..."
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash ~/.claude/hooks/rtk-rewrite.sh",
+            "timeout": 10,
+            "statusMessage": "RTK: compressing bash output..."
+          }
+        ]
+      }
+    ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash ~/.claude/statusline-command.sh"
+  },
+  "enabledPlugins": {
+    "rust-analyzer-lsp@claude-plugins-official": false,
+    "claude-code-setup@claude-plugins-official": true,
+    "frontend-design@claude-plugins-official": true,
+    "swift-lsp@claude-plugins-official": true
+  },
+  "effortLevel": "medium",
+  "tui": "fullscreen",
+  "skipDangerousModePermissionPrompt": true,
+  "preferredNotifChannel": "iterm2",
+  "agentPushNotifEnabled": false
+}

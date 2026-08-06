@@ -1,0 +1,42 @@
+# Local / machine-specific (never share)
+settings.local.json
+
+# Session & project runtime (large, personal)
+projects/
+sessions/
+session-env/
+plans/
+history.jsonl
+
+# Caches & history
+cache/
+file-history/
+paste-cache/
+image-cache/
+shell-snapshots/
+backups/
+telemetry/
+ide/
+
+# Daemon / jobs / tasks
+daemon/
+daemon.*
+jobs/
+tasks/
+*.lock
+
+# Installed plugins (reinstallable; not your config)
+plugins/
+
+# Legacy skills copy (canonical is skills/)
+skills-legacy/
+
+# Claude / OS noise
+.last-cleanup
+.last-update-result.json
+mcp-needs-auth-cache.json
+.DS_Store
+*.log
+*.sqlite
+*.sqlite-journal
+*.db
