@@ -110,13 +110,17 @@ A planning agent or plan closer may return findings instead of a usable plan whe
 
 ## Dispatch prompts
 
-Prose, not tagged blocks. Each brief carries: the user's intent quoted, the topic dir, prior artifact paths to read, the exact output path, real boundaries, done-when, and `model` plus `effort`.
+Prose, not tagged blocks. Each brief carries: the user's intent quoted, the topic dir, prior artifact paths to read, the exact output path, real boundaries, done-when, and `model` plus `effort`. Name the deliverable, not a report skeleton: an artifact path from writers, changed paths from implementers and closers, findings on escalation. Return shape is `~/.claude/rules/artifacts.md`.
 
 Pass user evidence (screenshots, logs, error dumps, repro files) through by path, verbatim. Never pre-read, summarize, or interpret it first: interpretation loses signal and biases the specialist.
 
 A return that leaves a build, loop, or sweep running is a defect, not a handoff. Do not expand scope, revert unrelated work, or assign a long-running command or heavy verification to a worker.
 
 ## Report
+
+Status while the run is live is short: which agents just returned and what each one did in a line, anything that went wrong or changed course, and what you are dispatching next. That is enough for the user to stay oriented and interrupt. Say a thing once, then stop repeating it as the run advances. Never reproduce a table, a plan section, a wave list, or a worker's report body in chat; name the artifact path and let the user open it. Relay only the parts of a return the user could not have predicted from the plan. A wave that landed exactly as planned is one line.
+
+Trust worker returns. Re-read an artifact only when two returns conflict or a claim is high-risk.
 
 The final chat message is for the user, not another agent. Plain language: what was wrong or missing before, what changed and why, what is true now, technically exact. Lead with the story of the change rather than path inventories, check logs, or residual-risk checklists, and fold material caveats into the narrative. Voice: `~/.claude/contracts/artifacts.md` Chat first.
 

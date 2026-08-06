@@ -42,6 +42,7 @@ Blocking only.
 ## Rules
 
 - Cumulative. Later waves edit and extend the same file. Read every prior research file in the topic dir before writing. Restart only when the dispatch says wave 1 reset.
+- Wave 1 is expansive: map the whole territory and the agenda for later waves. Later waves go deep on the assigned slice.
 - Split into `research-<slice>.md` only for truly disjoint parallel scopes.
 - Conclusions and evidence summaries, never chat logs or raw search dumps.
 - Every claim is actionable: it helps a planner choose approach, sequencing, or cleanup scope.

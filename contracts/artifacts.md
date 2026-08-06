@@ -26,7 +26,7 @@ Two files is the whole default layout. Extended layouts stay under the same topi
 
 Chat is the default medium for every result: findings, diagnoses, audits, status, completion reports. A file exists only for content a future agent or session must read, meaning an execution contract, cumulative research, or a shared brief that several dispatch prompts would otherwise repeat. "The user might want this later" is not a consumer; the chat message is the record. Never write completion-report, summary, or root-cause markdown files unless the user asks for the file.
 
-Completion reports speak plain language: what was wrong or missing before, what changed and why, what is true now. Factually exact, never agent jargon, and never a path dump, a check log, or a residual-risk checklist as the whole message.
+A completion report to the user speaks plain language: what was wrong or missing before, what changed and why, what is true now. Factually exact, never agent jargon, and never a path dump, a check log, or a residual-risk checklist as the whole message. A return to the agent that dispatched you is a different shape: `~/.claude/rules/artifacts.md`.
 
 ## Edit in place
 
@@ -38,4 +38,4 @@ Updating an artifact means editing it: refine, extend, correct, delete stale sec
 
 ## Dispatch
 
-Every subagent dispatch names: topic dir, exact output file, prior artifact paths to read. Subagents write only their assigned file; everything else returns in the summary.
+Every subagent dispatch names: topic dir, exact output file, prior artifact paths to read. Subagents write only their assigned file; everything else returns in the summary, shaped per `~/.claude/rules/artifacts.md`.
