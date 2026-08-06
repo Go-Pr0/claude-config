@@ -1,95 +1,43 @@
 ---
 name: research
 disable-model-invocation: true
-description: Multi-wave research pipeline — expansive early waves, cumulative research.md, sequential plan agents, plan closer. User-invoked only (/research). Default hold execution until the user asks to implement.
+description: Multi-wave research pipeline: expansive early waves, cumulative research.md, sequential plan agents, plan closer. User-invoked only (/research). Default hold execution until the user asks to implement.
 ---
 
-# Research workflow
+# /research
 
-User-invoked only. Run when the user explicitly invoked `/research`. Orchestrator handles the default single-pass path; this skill replaces it with multi-wave research and sequential planning.
+User-invoked only, as `/research`. This replaces the orchestrator's single research pass with multi-wave research and sequential planning. Everything else in `/orchestrator` still applies: role, autonomy, model routing, escalation, dispatch prompts, shells, and report.
 
-Default: `hold execution` until the user explicitly asks to implement.
+Default: hold execution until the user explicitly asks to implement.
 
-Do not combine with autonomous sprint unless the user explicitly wants research plus implementation in one run.
+## Files
 
-## Topic workspace
+One dir per task: `plans/active/<topic>/`, created at invocation. Base layout and lifecycle: `~/.claude/contracts/artifacts.md`. The named slices and sequential plan files below are this skill's extension of it; do not multiply files beyond truly disjoint scopes.
 
-Every task uses one dir in the repo:
+| File | Writer |
+|------|--------|
+| `research.md` | `web-search-researcher`, one wave at a time, cumulative |
+| `research-<slice>.md` | parallel researchers, disjoint scopes only |
+| `plan.md` or `plan-<nn>-<slug>.md` | `web-search-planner` or `web-search-redesign-planner`, one per surface |
 
-`plans/active/<topic>/`
+## Phase 1, research waves
 
-Create at start. Subagents read and write artifact files there. The main session does not author artifact bodies.
+Dispatch `web-search-researcher` with the topic dir, output file, wave number and title, prior files to read, repo scope, and done-when. Repo inspection is read-only.
 
-| File | Writer | Purpose |
-|------|--------|---------|
-| `research.md` | `web-search-researcher` waves | Cumulative research; each wave edits prior content |
-| `research-<slice>.md` | researcher (parallel only) | Disjoint slice when scopes do not overlap |
-| `plan.md` / `plan-<nn>-<slug>.md` | `web-search-planner` or `web-search-redesign-planner` per `/orchestrator` Plan routing | Execution contract(s); sequential planners read prior plan(s) |
+Wave 1 is expansive: it maps the whole territory, repo state, comparables, every area to cover, open questions, and the agenda for later waves. Later waves go deep on one assigned slice and edit the same file. Run waves sequentially, at most two researchers in parallel and only on disjoint scopes, and never start wave N+1 while wave N is running.
 
-Base layout, edit-in-place, and lifecycle: machine-wide `artifacts.md` at `~/.claude/contracts/` or `~/.codex/contracts/` (keep in sync). Named slices and sequential plan files are this skill's extended layout — still one topic dir, still edit-in-place per file; do not multiply files beyond truly disjoint scopes.
+Research is done when `Recommended direction` is stable, blocking open questions are listed, and a planner has enough to plan.
 
-Shapes: machine-wide `research.md` at `~/.claude/contracts/` or `~/.codex/contracts/` (keep in sync), machine-wide `plan.md` at `~/.claude/contracts/` or `~/.codex/contracts/` (keep in sync).
+## Phase 2, plan waves
 
-## Pipeline
+One planner per surface, chosen per the `/orchestrator` Pipeline table. Pass all research paths, all prior plan paths, the output path, and the surface it owns. Sequential: each planner extends, depends on, or supersedes the prior ones, never contradicts them. The planner decides bundling; a cleanup then greenfield then polish split is a suggestion, not a template.
 
-```text
-1. RESEARCH WAVES (sequential; ≤2 parallel researchers per wave if disjoint)
-2. PLAN WAVES (sequential planners; each owns a full surface)
-3. PLAN CLOSE → web-search-plan-closer
-4. REPORT
-5. EXECUTION (when user asks) → orchestrator implementer waves from closed plan(s)
-```
+## Phase 3, plan close
 
-## Phase 1 — Research waves
+`web-search-plan-closer` over all plan paths plus all research files.
 
-Dispatch `web-search-researcher` with topic dir, output file, wave number/title, prior files to read, repo scope, done-when. Set `model` and `effort` per `/orchestrator` Model routing.
+## Phase 4, report
 
-Repo inspection `read-only` by default. Date-stamp web-search queries.
+Report the topic dir, a synthesis pointing at the files, the plan paths and their order, the decisions, and the open questions. Stop there unless the user asks to implement, then continue at `/orchestrator` Execution step 6. Held plans stay in `plans/active/` until executed.
 
-Early waves are expansive. Wave 1 maps full territory — repo state, comparables, every area to cover, open questions, research agenda for later waves. Later waves go deep on assigned slices.
-
-| Pattern | Rule |
-|---------|------|
-| Sequential (default) | Wave N+1 edits `research.md` from wave N |
-| Parallel (≤2) | Disjoint scopes only |
-| Repo audit | Redundant assets/modules, cleanup constraints, maintainability gaps |
-
-Wait between waves. Research done when `Recommended direction` is stable, blocking `Open questions` listed, planners have enough to plan.
-
-## Phase 2 — Plan waves
-
-Dispatch `web-search-planner` or `web-search-redesign-planner` per surface — pick per `/orchestrator` Plan routing. Pass all research paths, prior plan paths, output path, surface ownership. Set `model` and `effort` per `/orchestrator` Model routing. Follow machine-wide `plan.md` at `~/.claude/contracts/` or `~/.codex/contracts/` (keep in sync).
-
-Sequential — extend, depend, or supersede; no conflicts. Planner decides bundling when user allows. Clean splits (cleanup → greenfield → polish) are a recommendation, not a template.
-
-## Phase 3 — Plan close
-
-`web-search-plan-closer` — all plan paths + all research files → wait. Set `opus` + `high` by default; `opus` + `xhigh` when integration-heavy. Escalate if irreconcilable.
-
-## Phase 4 — Report
-
-Topic dir, synthesis pointing at files, plan paths and order, decisions, open questions. Stop here unless user asks to implement (orchestrator step 6+). Held plans stay in `plans/active/` until executed; after execution and verification the topic dir is deleted per artifacts lifecycle.
-
-## Phase 5 — Execution
-
-Orchestrator implementer waves from closed plan file(s). Do not pass `/research` to subagents.
-
-## Escalation
-
-Stop and re-plan when research changes scope or plan closer cannot reconcile plans. Re-dispatch the same agent type with findings → plan closer → resume. Switch type only when `/orchestrator` Plan routing shows the original choice was wrong for intent.
-
-## Boundaries
-
-- No dependent wave N+1 while wave N runs.
-- No implementation during research-only runs.
-- Parallel researchers must not edit the same sections concurrently.
-
-## Agents
-
-| Phase | Agent | Output |
-|-------|--------|--------|
-| Research | `web-search-researcher` | `research.md` |
-| Plan | `web-search-planner` or `web-search-redesign-planner` | `plan.md` / `plan-<nn>-<slug>.md` |
-| Plan close | `web-search-plan-closer` | edited plans |
-| Execute | `web-search-implementer` | code |
-| Wave close | `web-search-wave-closer` | code |
+Re-plan when research changes scope or the closer cannot reconcile the plans: re-dispatch the same agent type with the findings, close again, resume.

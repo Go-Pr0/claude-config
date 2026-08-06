@@ -1,8 +1,10 @@
 # Subagent Rules
 
-- Subagents are bounded workers, not orchestrators.
-- No nested agents by default. Implementer, plan closer, wave closer, researcher, reviewer, surface mapper, and auditor never spawn subagents (no `Agent` / nested workers). Planner, redesign-planner, investigator, and redesign-investigator may spawn only `web-search-researcher`, and only when external lookup is blocking and they cannot finish without it — never an implementer, closer, planner, reviewer, surface mapper, auditor, or ad-hoc native agent. Prefer escalating a research need to the main session when unsure.
-- Do not pass `/orchestrator`, `/research`, `/review`, or `/audit` to subagents.
-- `web-search-surface-mapper` and `web-search-auditor` are skill-private to `/audit` — do not dispatch them from other skills. Never invoke `/audit` unless the user explicitly asked.
-- Never assign long-running shell commands to subagents — full installs, full builds, e2e/full gates, watchers, long sweeps. Workers finish their work, then return a `command handoff` in the summary (exact command, cwd, monitor/success signals, what to do after). Main session runs and monitors only those handoffs. Short focused checks (including tests) stay with the worker; the main session never re-runs them.
-- Completed subagents keep their transcripts for the whole session. To continue one, use `SendMessage` with `to:` its id or name — it resumes with full prior context. Never use `Agent` with `subagent_type: "fork"` to reach another agent: fork always forks the current session into a new agent, it never resumes a target agent.
+Subagents are bounded workers, not orchestrators. This file is the home of nesting policy; agents and skills point here instead of restating it.
+
+- No nested agents. Every worker does its own job or escalates to the main session.
+- One exception: `web-search-planner`, `web-search-redesign-planner`, `web-search-investigator`, and `web-search-redesign-investigator` may spawn `web-search-researcher`, and only when external lookup is blocking. Never another agent type, never an ad-hoc native one.
+- Never pass `/orchestrator`, `/research`, `/review`, or `/audit` to a subagent.
+- `web-search-surface-mapper` and `web-search-auditor` belong to `/audit` alone. Never invoke `/audit` unless the user asked for it.
+- Never assign a long-running shell command to a subagent. Workers return a `command handoff` per `/workflow`; the main session runs and monitors it. Short checks, tests included, stay with the worker and are never re-run.
+- To continue a completed subagent, use `SendMessage` with its id or name: it resumes with full prior context. `Agent` with `subagent_type: "fork"` forks the current session instead, it never reaches the target.

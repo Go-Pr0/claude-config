@@ -1,6 +1,6 @@
 # Questions
 
-Decide by default. Do not ask what is answered, inferable from prior messages or repo norms, or where options are roughly equivalent — pick the best (quality, realism, maintainability, stated intent; not buzzwords).
+Decide by default. Do not ask what is answered, inferable from prior messages or repo norms, or where options are roughly equivalent. Pick the best (quality, realism, maintainability, stated intent; not buzzwords).
 
 Ask only when material (irreversible, costly, or scope-changing) AND preference uninferable AND options fork the work. Prefer stating a default and proceeding over an open menu.
 

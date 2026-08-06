@@ -1,8 +1,6 @@
-# ~/.claude — machine-wide Claude Code layer
+# ~/.claude, the machine-wide Claude Code layer
 
-Parallel to `~/.codex/`. Skills live in `~/.claude/skills/` (real directory — not a symlink).
-
-**Codex mirror:** `~/.codex/` — `AGENTS.md`, `agents/*.toml`, `config.toml` (local). Copy skills to `~/.agents/skills/` when Codex needs them.
+Parallel to `~/.codex/`, which holds `AGENTS.md`, `agents/*.toml`, and a local `config.toml`. Skills are canonical here in `~/.claude/skills/` (a real directory, not a symlink); copy them to `~/.agents/skills/` when Codex needs them.
 
 ## Directory layout
 
@@ -10,127 +8,90 @@ Parallel to `~/.codex/`. Skills live in `~/.claude/skills/` (real directory — 
 ~/.claude/
 ├── CLAUDE.md              machine-wide habits
 ├── settings.json          skillOverrides, hooks, model (shareable template)
-├── settings.local.json    permissions (local only — not in zip)
-├── skills/                personal skills (canonical — edit here)
+├── settings.local.json    permissions (local only, not in the zip)
+├── skills/                personal skills (canonical, edit here)
 ├── agents/                web-search-*.md subagents
-├── contracts/             research.md / plan.md / artifacts.md shapes
-├── rules/                 *.md behavioral guidance
-├── hooks/                 rtk-rewrite, biome format (Claude-only)
+├── contracts/             artifact shapes: plan, research, workspace
+├── rules/                 always-on behavioral guidance
+├── hooks/                 rtk-rewrite, biome format (Claude only)
 ├── export-config.sh       Claude-only zip
 ├── export-shared-config.sh  Claude + Codex + skills zip
 └── SHARE-README.md        setup guide for zip recipients
 ```
 
-## What loads each session
-
-```text
-1. ~/.claude/CLAUDE.md       machine-wide habits
-2. repo/CLAUDE.md            project contract
-3. skills metadata           from ~/.claude/skills/
-4. settings.json             skillOverrides
-```
-
-| Skill | Visibility |
-|-------|------------|
-| `/orchestrator` | `user-invocable-only` |
-| `/research` | `user-invocable-only` |
-| `/workflow` | `name-only` globally; re-enabled in agent frontmatter |
-| `/prompt` | `user-invocable-only` |
-| `/handoff` | `user-invocable-only` |
-| `/explain` | `user-invocable-only` |
-| `/review` | `user-invocable-only` |
-| `/audit` | `user-invocable-only` |
-
-## `settings.json` skillOverrides
-
-| Override | Effect |
-|----------|--------|
-| `orchestrator` | `user-invocable-only` |
-| `research` | `user-invocable-only` |
-| `workflow` | `name-only` |
-| `prompt` | `user-invocable-only` |
-| `handoff` | `user-invocable-only` |
-| `explain` | `user-invocable-only` |
-| `review` | `user-invocable-only` |
-| `audit` | `user-invocable-only` |
-| `autonomous-sprint` | `off` |
-| `deep-research` | `off` |
-
-Planner, investigator, implementer, plan closer, wave closer, and reviewer re-enable `workflow` in agent frontmatter `skills`.
-
-## Orchestrator (`/orchestrator`)
-
-Intent translator and dispatcher, not implementer. Full rules: `skills/orchestrator/SKILL.md`.
-
-Flow: create `plans/active/<topic>/` → optional research → plan → plan-closer → implementer waves → wave-closer only for ultra-critical waves (~5%) → verification → report.
-
-`/research` — separate user-invoked skill for multi-wave research and sequential planners.
-
-`/audit` — map with `web-search-surface-mapper`, deep-dive with `web-search-auditor`, group into `plan.md`, execute fixes in the same session. User-invoked only.
-
-## `agents/` — nine custom agents
-
-| Agent | Workflow | Output |
-|-------|----------|--------|
-| `web-search-researcher` | no | `research.md` |
-| `web-search-investigator` | yes | `plan.md` |
-| `web-search-planner` | yes | `plan.md` |
-| `web-search-plan-closer` | yes | edited plan files |
-| `web-search-implementer` | yes | code |
-| `web-search-wave-closer` | yes | code |
-| `web-search-reviewer` | yes | code + chat summary |
-| `web-search-surface-mapper` | no | `surfaces.md` (`/audit` only) |
-| `web-search-auditor` | no | `surface-*.md` (`/audit` only) |
-
-Definitions: `agents/web-search-*.md` with YAML frontmatter.
-
-## Contracts
-
-| File | Purpose |
-|------|---------|
-| `contracts/artifacts.md` | Repo workspace `plans/active/<topic>/` (incl. `/research` and `/audit` extended layouts) |
-| `contracts/research.md` | `research.md` shape |
-| `contracts/plan.md` | `plan.md` shape (wave-centric) |
+Session load order: `~/.claude/CLAUDE.md`, then the repo's `CLAUDE.md`, then skill metadata from `~/.claude/skills/`, then `settings.json` overrides.
 
 ## Skills
 
-Canonical path: `~/.claude/skills/`. Edit here. For Codex, copy into `~/.agents/skills/` (or run export/restore).
+| Skill | Visibility | Who loads it |
+|-------|-----------|--------------|
+| `orchestrator` | `user-invocable-only` | main session, `/orchestrator` |
+| `research` | `user-invocable-only` | main session, `/research` |
+| `audit` | `user-invocable-only` | main session, `/audit [target] [brief]` |
+| `review` | `user-invocable-only` | main session, `/review [scope]` |
+| `prompt` | `user-invocable-only` | main session, `/prompt [ask] [mode hint]` |
+| `handoff` | `user-invocable-only` | main session, `/handoff [note]` |
+| `explain` | `user-invocable-only` | main session, `/explain [topic]` |
+| `memory-promote` | `user-invocable-only` | main session, `/memory-promote` |
+| `workflow` | `name-only` | planners, investigators, implementer, closers, reviewer, via agent frontmatter |
+| `writing-prompts` | model-applicable | any agent writing a prompt, agent file, or instruction |
+| `instructions` | model-applicable | any agent authoring or refactoring instruction text |
+| `autonomous-sprint`, `deep-research` | `off` | nobody |
 
-| Skill | Who | How |
-|-------|-----|-----|
-| `orchestrator` | Main session | `/orchestrator` |
-| `research` | User only | `/research` (never model-invoked) |
-| `workflow` | Planner, investigator, implementer, closers, reviewer | Agent frontmatter |
-| `prompt` | User only | `/prompt [ask] [mode hint]` |
-| `handoff` | User only | `/handoff [note]` |
-| `explain` | User only | `/explain [topic]` |
-| `review` | User only | `/review [scope]` |
-| `audit` | User only | `/audit [target] [brief]` |
-| `autonomous-sprint` | Disabled (`off`) | — |
-| `writing-prompts` | Reference | prompt craft |
+User-invocable skills carry `disable-model-invocation: true` in frontmatter plus the matching `skillOverrides` entry in `settings.json`. `workflow` stays model-loadable so agent frontmatter can pull it in. Codex mirrors visibility through `agents/openai.yaml` `allow_implicit_invocation`.
 
-Orchestrator, research, prompt, handoff, explain, review, and audit use Claude `disable-model-invocation: true` in frontmatter plus `skillOverrides: user-invocable-only`. Codex mirrors that with `agents/openai.yaml` `allow_implicit_invocation: false`. `workflow` stays model-loadable (`name-only` + no `disable-model-invocation`); its Codex yaml is still `false` so it is not implicitly matched — agents load it via frontmatter. `writing-prompts` stays model-applicable (no disable; Codex `allow_implicit_invocation: true`).
+## Agents
 
-## Export / share
+Eleven subagents, defined in `agents/web-search-*.md` with YAML frontmatter.
+
+| Agent | Loads workflow | Output |
+|-------|----------------|--------|
+| `web-search-researcher` | no | `research.md` |
+| `web-search-planner` | yes | `plan.md` |
+| `web-search-redesign-planner` | yes | `plan.md` |
+| `web-search-investigator` | yes | `plan.md` |
+| `web-search-redesign-investigator` | yes | `plan.md` |
+| `web-search-plan-closer` | yes | edited plan files |
+| `web-search-implementer` | yes | code |
+| `web-search-wave-closer` | yes | code |
+| `web-search-reviewer` | yes | code plus a chat summary |
+| `web-search-surface-mapper` | no | `surfaces.md`, `/audit` only |
+| `web-search-auditor` | no | `surface-*.md`, `/audit` only |
+
+Orchestration flow: create `plans/active/<topic>/`, optional research, plan, plan close, implementer waves, wave close only for ultra-critical waves (~5%), report. Full rules in `skills/orchestrator/SKILL.md`.
+
+## Contracts
+
+One contract per writer. Every plan contract links the spine.
+
+| File | Governs |
+|------|---------|
+| `contracts/artifacts.md` | the `plans/active/<topic>/` workspace, edit-in-place, lifecycle |
+| `contracts/research.md` | `research.md` shape, written by `web-search-researcher` |
+| `contracts/plan.md` | the plan spine: Facts, Spec, Conceptual reading, Waves, Deferred, graph rules, bans |
+| `contracts/plan-planner.md` | `web-search-planner` |
+| `contracts/plan-redesign-planner.md` | `web-search-redesign-planner` |
+| `contracts/plan-investigator.md` | `web-search-investigator` |
+| `contracts/plan-redesign-investigator.md` | `web-search-redesign-investigator` |
+| `contracts/plan-closer.md` | `web-search-plan-closer` |
+
+## Export and share
 
 | Script | Output |
 |--------|--------|
-| `export-shared-config.sh` | Both hosts + `claude/skills/` + `SHARE-README.md` |
-| `export-config.sh` | Claude host + skills |
-
-Excluded from zips (personal): `settings.local.json`, `projects/`, `plugins/`, runtime caches.
+| `export-shared-config.sh` | both hosts, plus `claude/skills/` and `SHARE-README.md` |
+| `export-config.sh` | Claude host plus skills |
 
 ```bash
-~/.claude/export-shared-config.sh              # → ~/Desktop/agent-config-<stamp>.zip
+~/.claude/export-shared-config.sh              # writes ~/Desktop/agent-config-<stamp>.zip
 ~/.claude/export-shared-config.sh --restore path/to.zip
 ```
 
-Recipients: read `SHARE-README.md` in the zip.
+Excluded as personal: `settings.local.json`, `projects/`, `plugins/`, runtime caches. Recipients read `SHARE-README.md` in the zip.
 
 ## Sync with Codex
 
-1. Edit skills in `~/.claude/skills/`.
-2. Copy needed skill dirs to `~/.agents/skills/` for Codex (no live symlink).
-3. Mirror host files: Claude `agents/*.md` ↔ Codex `agents/*.toml`; `CLAUDE.md` ↔ `AGENTS.md`.
-4. Claude: `disable-model-invocation: true` + `skillOverrides`. Codex: `agents/openai.yaml` `allow_implicit_invocation` (`false` for user-only / workflow; `true` for writing-prompts).
-5. Restart both hosts after global changes.
+1. Edit skills in `~/.claude/skills/`, then copy the dirs Codex needs into `~/.agents/skills/`. There is no live symlink.
+2. Mirror host files: Claude `agents/*.md` against Codex `agents/*.toml`, `CLAUDE.md` against `AGENTS.md`, and `contracts/` against `~/.codex/contracts/` with the `~/.claude/` paths rewritten to `~/.codex/`.
+3. Set visibility on both sides: Claude via `disable-model-invocation` plus `skillOverrides`, Codex via `agents/openai.yaml` `allow_implicit_invocation`.
+4. Restart both hosts after global changes.

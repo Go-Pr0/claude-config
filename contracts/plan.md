@@ -1,164 +1,98 @@
 # Plan Contract
 
-Machine-wide shape for `plan.md`. Planners, redesign planners, investigators, and redesign investigators write to this contract. The orchestrator treats `plan.md` as the execution contract: a dependency graph of waves, one `web-search-implementer` per wave, dispatched greedily as dependencies land; `web-search-wave-closer` only for ultra-critical waves (~5%) per `/orchestrator`.
+Machine-wide spine for `plan.md`: the blocks every plan shares and the rules that govern them. Each planning agent reads its own contract for the sections it writes, then this file for what those sections mean.
 
-## Shape
+| Agent | Contract |
+|-------|----------|
+| `web-search-planner` | `~/.claude/contracts/plan-planner.md` |
+| `web-search-redesign-planner` | `~/.claude/contracts/plan-redesign-planner.md` |
+| `web-search-investigator` | `~/.claude/contracts/plan-investigator.md` |
+| `web-search-redesign-investigator` | `~/.claude/contracts/plan-redesign-investigator.md` |
+| `web-search-plan-closer` | `~/.claude/contracts/plan-closer.md` |
 
-- Wave-centric. The `## Waves` section is the body of the plan.
-- Redesign plans add a bounded `## Conceptual reading` before `## Waves`. The wave graph remains the execution body.
-- Waves are graph nodes. `Depends on` lines are the edges — real producer→consumer dependencies only (B cannot start until A's outputs exist). False edges serialize the graph; anything not downstream of an unfinished wave dispatches in parallel.
-- Maximize parallelism. Do not add `Depends on` to avoid indirect or read-only overlap — that overlap is fine. Serialize only for hard write conflicts or true data dependencies.
-- Few, large waves. A wave is one implementer's substantial logical chunk — a domain/surface slice with real work, not a step or checklist item. Prefer fewer, larger waves over a fine graph. Merge anything that would always ship together; split only on a hard write conflict or a true dependency.
-- Flat graph only. No sub-waves, no nested numbering (1.1 / 1.2), no wave that spawns further agents. One wave = one implementer.
-- Current design only. The plan holds what is being, about to be, or has been implemented — nothing legacy. A redesign rewrites `plan.md` in place: same filename, old content deleted, no superseded waves, no changelog, no "previously" sections.
-- Scope is domain/surface first — not a file tree or path inventory. Landmark modules or paths are allowed when naming them prevents the wrong surface; do not enumerate every touch point.
-- Dense and complete — as long as needed to cover the surface; no padding, no transcript. Extra tokens are for hard constraints, not restating Intent or padding `Do`.
-- Carry enough conceptual how that a strong implementer does not re-derive the approach. Prefer precise invariants, ordering, failure modes, and key shapes over soft prose. Short snippets only when they beat a longer explanation (API/type/protocol shape, state transition, non-obvious invariant) — never full implementations or per-file edit scripts. Implementers still read the repo for exact files and wiring.
-- No investigation transcript — conclusions and decisions only. Discovery stays in the agent read phase or in `research.md`.
-- One wave = one dispatchable slice with a preferred-disjoint write scope (hard write conflicts force a split or edge; indirect overlap does not).
+Workspace, edit-in-place, and lifecycle: `~/.claude/contracts/artifacts.md`.
 
-## Feature plan shape
+## What a plan says
 
-```markdown
-# <Topic>
+A plan is the handoff between an agent that read the code and an agent that will change it. It says three kinds of thing, and they fail differently. Kept apart, a plan can be checked.
 
-## Intent
-What we are doing, why, and how we know it is done.
+| Kind | What it is | How it fails | Where it lives |
+|------|------------|--------------|----------------|
+| Fact | The system as it is now | Wrong, or true when written and rotted since | `## Facts`, cited |
+| Decision | What to build and what not to | Not wrong, only ill judged | the head sections your contract names |
+| Instruction | What an implementer does | Incomplete: leaves a choice unmade | `## Waves` |
 
-## Context
-Pointers only: `research.md`, relevant subsystems, constraints.
+A fact stated inside an instruction is invisible and unfalsifiable. That is the most common way a well-formed plan is wrong.
 
-## Decision
-Chosen approach and what we ruled out.
+Density is choices removed per token, not tokens spent. A long plan that leaves nothing to invent is dense. A short plan that leaves five choices open is deferred cost. Length is never the fault; an uncited claim or a repeated line is.
+
+## Facts
+
+Load-bearing claims about the current system. One line each, each ending in where it was read this session (`path`, or `path:symbol`). Research pointers live here too.
+
+A claim earns a line only when a wave would be built wrong without it. These four are the ones missed most:
+
+- The existing owner of a job the plan is about to specify a second time: timer, store, component, helper, string.
+- The trigger path of any surface, state, or control the plan adds: what shows it, what hides it, what already shows the same fact. If the trace fails, the feature is wrong, not the trace.
+- The repo invariants the plan's own Spec content must obey: data rules, copy rules, documented type contracts.
+- The gates the touched surface crosses, including cross-cutting sweeps that live outside it.
+
+Writing the citation is the check: you cannot write down where a mechanism already lives and then specify a second one.
+
+Never write a remembered specific. A symbol, path, token, channel, or gate you did not read is delegated, not guessed: state the invariant and hand the mechanism to the implementer ("mechanism yours: no section renders an orphan label"). An honest delegation costs less than a plausible wrong specific and is the only thing that catches it.
+
+## Spec
+
+Optional. Subsections the planner names after the domain: layout, copy deck, state matrix, data derivations, wire shapes, schema deltas, rollout order, compatibility matrix, file inventory (keep / rewrite / new / delete).
+
+A subsection earns its place when two waves reference it, or when it removes a choice an implementer would otherwise make. A file inventory here is the authoritative touch list; waves point into it instead of re-listing paths.
+
+Shape only: tables, matrices, exact strings, orderings, geometry, short type sketches. No facts, they are cited above. No reasoning, it is decided in the head sections. A subsection of prose paragraphs is an essay and belongs in a head section as one line.
+
+Omit the section entirely when the waves carry everything.
+
+## Conceptual reading
+
+Redesign plans only, placed before `## Waves`. The target model, never the current codebase:
+
+- Entities, states, transitions, boundaries, invariants.
+- What the current design must not keep.
+- What transfers from alternatives and what you refuse.
+- Deletion and replace stance.
+
+Dense bullets, at most 40. No file paths, no current-code inventory, no bolt-on steps layered on today's shape. Long evidence stays in `research.md`. Every wave traces to a bullet here.
 
 ## Waves
 
-### Wave 1: <title>
+Graph nodes. `Depends on` lines are the edges.
+
+```markdown
+### Wave N: <title>
 - Goal:
-- Scope: domain/surface — optional landmark modules/paths when ambiguity would cost the wrong surface; never a file inventory
+- Touches: the write surface, precise enough that two waves can be compared for conflict. Paths allowed, edit scripts not.
 - Depends on: none | Wave N
-- Do: dense bullets — what to change and how (approach, invariants, ordering, key shapes). Spend length on constraints the implementer must not reinvent; skip restating Goal/Intent
-- Avoid:
-- Done when:
-- Verify: named check or command — focused and fast, local to the wave; the wave worker runs it. Full installs, full builds, e2e/full gates, watchers, long sweeps → `command handoff` to the main session. Short tests are never a handoff and are never re-run by the orchestrator.
-- Close: yes | no — marks integration-heavy waves where landing gaps are costly. Does not auto-dispatch wave closer; default landing is the next implementer or a fixup. Wave closer only when ultra-critical per `/orchestrator`.
-  Optional group form `Close: yes (group: <slug>)` — waves sharing a slug are closed together by ONE wave closer covering the whole group, dispatched once every wave in it has returned; a consumer that ignores groups reads it as plain `Close: yes`.
-  Whether a `Close:` flag dispatches a closer at all stays consumer policy — `/orchestrator` remains sparse; another consumer may mandate one per flag.
-
-### Wave 2: ...
-
-## Open questions
-Blocking only.
-
-## Out of scope
+- Do: what changes. Name the mechanism wherever the outcome has more than one plausible shape and the choice touches a hot path, a shared invariant, or a gate; otherwise name the outcome and stop. Point into Spec rather than restating it. A bullet that states its outcome twice is missing its mechanism.
+- Avoid: the specific wrong turns available in this scope. Each line is a defect that does not happen.
+- Done when: observable from outside the wave.
+- Verify: one fast local check drawn from the gates cited in Facts. The wave worker runs it.
+- Close: yes | no.
 ```
 
-`web-search-planner` writes this shape.
+- Few, large waves. One wave is one implementer and one dispatchable slice with a preferred-disjoint write scope. Merge anything that would always ship together.
+- Flat only. No sub-waves, no nested IDs (1.1, 1.2), no wave that implies a second agent.
+- Real edges only: producer to consumer, or a hard write conflict. Indirect or read-only overlap is not an edge. Anything not downstream of an unfinished wave dispatches at once. A false `Depends on` costs more than a merged wave.
+- `Close: yes` means a landing gap here would poison a dependent wave. Whether a flag dispatches a closer is the consumer's policy, not the plan's.
+- Full installs, full builds, e2e or full gates, watchers, and long sweeps are never a `Verify` line. They are a `command handoff` to the main session.
 
-## Redesign feature plan shape
+## Deferred
 
-Same `## Waves` block and trailing sections as the feature plan. Insert `## Conceptual reading` after `## Intent`, before `## Context`. `web-search-redesign-planner` writes this shape for any ground-up redesign (architecture, pipeline, protocol, data model, API, infra, UX, or other).
+Everything deliberately not here, one line each with its reason: rejected options, out-of-scope surfaces, hypotheses ruled out and the evidence that ruled them out. A question that blocks the work is marked blocking.
 
-```markdown
-# <Topic>
+## Never in a plan
 
-## Intent
-What we are redesigning, why, and how we know the new shape is done.
-
-## Conceptual reading
-Bounded target model only: dense bullets, no prose essay. Answer only:
-- Target model: entities, states, transitions, boundaries, and invariants
-- What the current design must not keep
-- Alternatives considered: what transfers and what we refuse (comparables optional; only when useful for this domain)
-- Deletion/replace stance (what from the old shape must not survive)
-
-No file paths. No current-code dump. No API or repo transcripts (pointer in Context). Long evidence lives in `research.md`; keep takeaways here.
-
-Hard bound: at most 40 bullets total across all sub-bullets. Cut scope or move evidence to `research.md` if you need more.
-
-## Context
-Pointers only: `research.md`, relevant subsystems, constraints.
-
-## Decision
-Chosen target model and what we ruled out (including bolt-on and extend-current options).
-
-## Waves
-...
-```
-
-## Investigation plan shape
-
-Same `## Waves` block and trailing sections as the feature plan. Replace Intent/Context/Decision with:
-
-```markdown
-## Symptoms
-## Leading theory
-## Hypotheses ruled out
-## Waves
-...
-```
-
-`web-search-investigator` writes this shape.
-
-## Redesign investigation plan shape
-
-Same `## Waves` block and trailing sections. Replace Intent/Context/Decision with investigation headers, then insert bounded `## Conceptual reading` after `## Hypotheses ruled out`, before `## Waves`. `web-search-redesign-investigator` writes this shape when bug or failure diagnosis requires redefining the broken foundation (any domain).
-
-```markdown
-# <Topic>
-
-## Symptoms
-What fails, where, and how we reproduce or observe it.
-
-## Leading theory
-Current best explanation and evidence.
-
-## Hypotheses ruled out
-What we tested and rejected.
-
-## Conceptual reading
-Bounded target model only: dense bullets, no prose essay. Answer only:
-- Target model: entities, states, transitions, boundaries, and invariants
-- What the current design must not keep
-- Alternatives considered: what transfers and what we refuse (comparables optional; only when useful for this domain)
-- Deletion/replace stance (what from the old shape must not survive)
-
-No file paths. No current-code dump. No API or repo transcripts (pointer in wave Context if needed). Long evidence lives in `research.md`; keep takeaways here.
-
-Hard bound: at most 40 bullets total across all sub-bullets. Cut scope or move evidence to `research.md` if you need more.
-
-## Waves
-...
-```
-
-## Anti-patterns
-
-- Unbounded architecture or product essays before waves (redesign plans use bounded `## Conceptual reading` per redesign feature plan shape, not an exception to the wave-centric body)
-- Redesign plans that jump to `## Waves` without `## Conceptual reading`
-- Redesign `## Conceptual reading` that inventories the current codebase instead of stating the target model
-- Waves in a redesign plan that only extend today's shape without tracing to Conceptual reading
-- Redesign investigation plans without `## Conceptual reading`
-- Redesign investigation `## Conceptual reading` that inventories the current codebase instead of stating the target model
-- Waves in a redesign investigation plan that do not trace to Conceptual reading
-- Executive summaries restating the waves — the waves are the summary
-- Long "current system" dumps, evidence tables, or API-verification transcripts that belong in `research.md` — a pointer, not a copy
-- Provenance front-matter (commit SHAs, clone paths, investigation dates)
-- Long code dumps or full-function implementations (short shape/invariant snippets are fine)
-- Per-file edit instructions or touch-list inventories across the repo
-- Soft essay `Do` that restates Intent without adding constraints
-- Tool/editor step-by-step scripts (name constraints in `Avoid` if needed)
-- Versioned filenames — revisions edit `plan.md` in place per `~/.claude/contracts/artifacts.md`
-- Superseded or legacy content kept for history — a redesign wholly replaces the file
-- Step-sized or undersized waves; chains of `Depends on` that are really one slice
-- Sub-waves, nested IDs (1.1, 1.2), or one wave that implies a second agent
-- `Depends on` added only to avoid indirect or read-only overlap
-- Waves adding unrequested safety modes or fallback scaffolding (paper/dry-run/mock modules) — per `~/.claude/rules/code.md` Defensive code
-- Waves that bump dependency or runtime versions unless the user asked — per `~/.claude/rules/deps.md`
-
-## Routing
-
-Workspace: `plans/active/<topic>/plan.md` per `~/.claude/contracts/artifacts.md`.
-
-Which planning agent writes which shape is orchestrator Plan routing only. Agents do not escalate into a different planning type.
-
-Malformed plans after plan closer (missing `## Waves`, waves without disjoint scope or done-when) → re-dispatch the same agent type that wrote it.
+- A remembered specific. Cite it or delegate it.
+- An executive summary. The waves are the summary.
+- Investigation transcript, evidence tables, provenance front matter. That is `research.md`.
+- Full implementations, per-line edit scripts, tool step-by-step.
+- Superseded content. A revision rewrites this file in place: no legacy waves, no changelog, no "previously".
+- A rule another contract or a file in `~/.claude/rules/` already owns. Point at it, or leave it out.

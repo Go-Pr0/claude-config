@@ -1,42 +1,32 @@
 ---
 name: workflow
-description: Execution checklists for planner, redesign-planner, investigator, redesign-investigator, implementer, plan closer, and wave closer — surface prep, orchestrator boundaries, wave-close heuristics, and wave discipline. Loaded by those agents via agent frontmatter.
+description: Execution discipline for agents that touch a repo: surface prep before editing, synchronous runs, and long-command handoffs. Loaded by planners, investigators, implementers, closers, and the reviewer via agent frontmatter.
 ---
 
 # Workflow
 
-Execution guidance for planner, redesign-planner, investigator, redesign-investigator, implementer, plan closer, wave closer, and orchestrator boundaries. Project contracts and standards live in the repo (and `~/.claude/contracts/` when present) — ports, invariants, gates, and First-reads indexes. This skill holds execution checklists beyond that.
+How an agent works inside a repo once it has its assignment. Plan shape lives in `~/.claude/contracts/plan.md` and the per-agent contracts it routes to. Dispatch, model routing, and lifecycle live in `/orchestrator`.
 
 ## Surface prep
 
-Before editing, read the relevant standards and contract docs for the surface you touch (project `AGENTS.md`, module READMEs, active plan docs, etc.). Follow the repo's `First reads` index when one exists.
+Before editing, read the standards and contract docs for the surface you touch: project `AGENTS.md` or `CLAUDE.md`, module READMEs, the active plan. Follow the repo's `First reads` index when one exists. Read the actual file before changing it.
 
-## Orchestrator boundaries
+## Stay synchronous
 
-The orchestrator manages lifecycle and dispatch; source and asset mutations stay in implementer and closer waves. The repo contract owns project-specific commands.
+Everything you run, runs to completion in the foreground. Never background a process and return early: your return signals the scope is free, and an orphaned loop races the next agent's identical run. If a run cannot finish in your window, kill it and report exactly where it stood.
 
-Assign visual, runtime, or integration verification only when explicitly needed; default is user-owned at task end.
+Short local checks, tests included, are yours. Their result is the wave's verification and the main session must not re-run them.
 
-## Nested agents
+## Hand off long commands
 
-Do not spawn subagents. Exception — planner, redesign-planner, investigator, and redesign-investigator only: may spawn `web-search-researcher` when external facts are blocking and you cannot finish without them. Never spawn implementers, closers, planners, reviewers, or ad-hoc natives. Implementer, plan closer, wave closer, researcher, and reviewer: never spawn anyone (researcher included — no researcher→researcher) — do the work yourself or escalate to the main session.
+Full installs, full builds, e2e or full gates, watchers, and long sweeps belong to the main session. Never accept a dispatch that assigns one to you; hand it back.
 
-## Wave Close heuristics
-
-Set `Close:` yes on waves that cross modules, wire integration surfaces, or span multiple stacks — anywhere landing gaps would poison the next wave. Default no on isolated edits. `Close:` marks integration risk.
-
-Whether a closer runs is consumer policy, not this skill: personal `/orchestrator` keeps closers sparse (~5%); the board ticket engine (`.claude/boards/engine/control-plane.md`) dispatches one closer per every `Close: yes` group. Workers do not second-guess the dispatch.
+Finish your edit and analysis work first, then put a `command handoff` in your return summary: exact commands, cwd, env only when non-obvious, the monitor (success and failure patterns, or expected exit), and what the main session does after (resume you, mark the wave done, unblock dependents). Mark it small when wave work remains after the run, large when only the command is left.
 
 ## Wave discipline
 
-- Stay synchronous. Everything you run, runs to completion in the foreground. Never background a process and return early — your return signals the scope is free, and an orphaned loop races the next agent's identical run. If a run cannot finish in your window, kill it and report exactly where it stood.
-- Long shell commands — hand off, never run. Full installs, full builds, e2e/full gates, watchers, long sweeps stay with the main session. Finish your edit/analysis work first. Put a `command handoff` in your return summary — small if more wave work remains after the run, large if the wave is otherwise done and only the command remains. Include: exact command(s); cwd; env only if non-obvious; monitor (success/fail output patterns or exit expectations); what the main session should do after (resume you / mark wave done / unblock dependents). Never accept a dispatch that assigns the long run to you — refuse and hand it back. Short local checks you can finish quickly (including tests) stay yours and run synchronously in the foreground — those results are the wave's verification; the main session must not re-run them.
-- One plan wave = one substantial slice; preferred-disjoint write scope. Never revert unrelated work.
-- Small, reviewable changes. No generated/temp files in source unless the plan requires them.
-- Implementer ships the wave slice; patch prior-wave gaps when the dispatch says so. Wave closer only when the orchestrator dispatches one.
+One wave is one substantial slice with a preferred-disjoint write scope. You are not alone in the repo: other agents or the user may be editing concurrently. Adapt to their changes and never revert unrelated work.
 
-## Plan graph (planner / redesign-planner / investigator / redesign-investigator / plan closer)
+Ship the wave complete and wired, never stubs for someone else. Fix root causes inside the scope; if the fix needs redesign outside it, stop and escalate with findings rather than expanding. Patch prior-wave gaps only when the dispatch says so.
 
-Maximize parallelism: few large flat waves, no sub-waves or nested IDs. `Depends on` only for true producer→consumer or hard write conflicts — never to dodge indirect overlap. Merge undersized or always-together waves; cut false edges.
-
-Non-bug ground-up redesign: orchestrator dispatches `web-search-redesign-planner`. Bug foundation redesign: `web-search-redesign-investigator`. Shapes live in `~/.claude/contracts/plan.md`. Agents do not escalate into a different planning type.
+No generated or temporary files in source unless the plan requires them.
