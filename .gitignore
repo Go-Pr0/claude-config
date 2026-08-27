@@ -40,3 +40,5 @@ mcp-needs-auth-cache.json
 *.sqlite
 *.sqlite-journal
 *.db
+channels/**/.env
+*.env
