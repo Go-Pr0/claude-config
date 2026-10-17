@@ -42,3 +42,11 @@ mcp-needs-auth-cache.json
 *.db
 channels/**/.env
 *.env
+
+# Runtime state and backups
+state/
+settings.json.bak.*
+
+# Account-synced skills (managed by Claude, not this repo)
+skills/synced/
+skills/.trash/
