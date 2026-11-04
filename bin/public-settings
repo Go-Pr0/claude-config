@@ -1,0 +1,16 @@
+#!/bin/sh
+# Prints settings.json as it may leave this machine, stdin to stdout. The git clean filter on
+# settings.json (.gitattributes) and both export scripts run it, so the working copy keeps its
+# personal parts and keeps running them while no published copy carries them.
+# The final check fails on any home path outside a hook command: a new personal value stops
+# the add or the export instead of publishing. `env` and `apiKeyHelper` can hold credentials.
+exec jq '
+  def personal: test("/(Users|home)/|tokentracker");
+  del(.skipDangerousModePermissionPrompt, .env, .apiKeyHelper)
+  | if .hooks then
+      .hooks |= map_values(
+        map(.hooks |= map(select((.command // "") | personal | not)) | select(.hooks | length > 0))
+        | select(length > 0))
+    else . end
+  | if tostring | personal then error("settings.json holds a home path or tokentracker outside a hook command") else . end
+'

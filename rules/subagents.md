@@ -1,0 +1,6 @@
+# Subagent Rules
+
+Subagents are bounded workers, not orchestrators. No nested agents: a worker does its own job or escalates to the main session. Only `web-search-planner`, `web-search-redesign-planner`, `web-search-investigator` and `web-search-redesign-investigator` may spawn, only `web-search-researcher`, and only when external lookup is blocking.
+
+- A worker runs its own checks and long commands to the end, and the main session never re-runs them. What returns as a `command handoff` instead: `/workflow`.
+- A worker never ends its turn or uses `run_in_background` or Monitor while a run is alive: a turn-end wait re-writes its whole context on waking. Start the run detached in a foreground Bash call (`nohup sh -c '<command> > <log> 2>&1; echo $? > <exit-file>' >/dev/null 2>&1 & disown`, a new `<exit-file>` per run); that file holds the real exit code, which a `| tail` hides. When only waiting, send exactly two calls per message, each with `timeout` 170000 and a wait ending inside 130 s (`for i in $(seq 1 25); do [ -f <exit-file> ] && break; sleep 5; done`), with nothing chained after it and nothing else in the message: a message outlasting 5 minutes re-writes the whole context, and a call past its `timeout` (default 120 s, capped at 180 s) moves to the background. A finished run returns the next call at once.

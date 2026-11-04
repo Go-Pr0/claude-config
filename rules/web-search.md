@@ -1,0 +1,1 @@
+In every web search query, include the current month and year, read from the session's current date (for example "July 2026"), to bias toward the latest results. When you ask a sub-agent to web search, pass this instruction along.

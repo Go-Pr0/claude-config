@@ -1,0 +1,444 @@
+#!/bin/sh
+# The one writer of a plan's progress record and the mover of its blocks.
+# Shape of the record: contracts/artifacts.md "Progress record".
+set -u
+
+# Every size is bytes: gawk counts characters in a UTF-8 locale.
+LC_ALL=C
+export LC_ALL
+
+BYTE_CAP=300
+PASS_STEP=12000
+LOCK_WAIT_S=15
+MOVE_TRIES=3
+ARCHIVE_HEAD='# Archive: grep a heading, never read whole'
+USAGE="usage: progress add DIR binding|open|landed TEXT | move FILE 'HEADING TEXT'... | show DIR | list FILE"
+NL='
+'
+CR=$(printf '\r')
+
+LOCK=
+BREAKER=
+SNAP=
+REST=
+BLOCK=
+
+die() {
+  code=$1
+  shift
+  printf 'progress: %s\n' "$*" >&2
+  exit "$code"
+}
+
+# Unquoted: BSD wc pads its count with spaces.
+size() {
+  printf '%s' $(wc -c < "$1")
+}
+
+cleanup() {
+  if [ -n "$SNAP" ]; then rm -f "$SNAP" "$REST" "$BLOCK"; fi
+  if [ -n "$BREAKER" ]; then rmdir "$BREAKER" 2>/dev/null; fi
+  if [ -n "$LOCK" ] && [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ]; then rm -rf "$LOCK"; fi
+}
+trap cleanup EXIT
+trap 'exit 129' HUP
+trap 'exit 130' INT
+trap 'exit 143' TERM
+# Ignored first: with stderr on the same closed pipe, the message would raise it again.
+trap 'trap "" PIPE; die 141 "stdout closed: stopped here, nothing further moved"' PIPE
+
+# Only "no such process" is death: a live process of another user or sandbox refuses the signal
+# with a different error.
+holder_dead() {
+  case $1 in
+    *[!0-9]*) return 0 ;;
+  esac
+  case $(kill -0 "$1" 2>&1) in
+    *[Nn]'o such process'*) return 0 ;;
+  esac
+  return 1
+}
+
+# Judged and removed only under the breaker's own directory: a dead holder cannot release and no
+# other breaker can act, so the lock judged is the lock removed, and no live lock is ever taken
+# from its holder. Temp files go first, since a new holder could carry the dead pid's number.
+break_stale() {
+  mkdir "$LOCK.break" 2>/dev/null || return 1
+  BREAKER=$LOCK.break
+  dead=$(cat "$LOCK/pid" 2>/dev/null)
+  if [ -n "$dead" ] && holder_dead "$dead"; then
+    rm -f "$1/.progress.$dead".*
+    rm -rf "$LOCK"
+  fi
+  # Cleared first: a signal right after the rmdir must not remove the next breaker's directory.
+  BREAKER=
+  rmdir "$LOCK.break"
+}
+
+# Temp files sit beside their target, so a rename is atomic; a dead holder's are found by its pid.
+take_lock() {
+  [ -w "$1" ] || die 2 "cannot write in $1"
+  SNAP=$1/.progress.$$.snap
+  REST=$1/.progress.$$.rest
+  BLOCK=$1/.progress.$$.block
+  LOCK=$1/.progress.lock
+  waited=0
+  while :; do
+    if refused=$(mkdir "$LOCK" 2>&1); then
+      { printf '%s\n' "$$" > "$LOCK/pid"; } 2>/dev/null && return 0
+      rm -rf "$LOCK"
+      die 4 "cannot write $LOCK/pid"
+    fi
+    # A sandbox can refuse the directory while the mode bits allow it: no wait will help.
+    case $refused in
+      *'File exists'*) ;;
+      *) die 2 "$refused" ;;
+    esac
+    holder=$(cat "$LOCK/pid" 2>/dev/null)
+    if [ -n "$holder" ] && holder_dead "$holder" && break_stale "$1"; then
+      continue
+    fi
+    if [ "$waited" -ge "$LOCK_WAIT_S" ]; then
+      # A live holder never stays this long without a pid, and a breaker holds its directory for
+      # milliseconds: past the wait, each is what a killed process left.
+      if [ -d "$LOCK.break" ]; then die 4 "$LOCK.break is left by a killed process: remove it"; fi
+      die 4 "$LOCK still held after $LOCK_WAIT_S s, by ${holder:+pid }${holder:-no pid, left by a killed process: remove it}"
+    fi
+    waited=$((waited + 1))
+    sleep 1
+  done
+}
+
+# A symlink is refused because the rename would replace the link.
+check_target() {
+  [ ! -L "$1" ] || die 2 "$1 is a symlink"
+  [ ! -d "$1" ] || die 2 "$1 is a directory"
+  [ ! -e "$1" ] || { [ -r "$1" ] && [ -w "$1" ]; } || die 2 "cannot read and write $1"
+}
+
+# Reads a document from stdin into a table of its headings outside code fences: line, level,
+# text, last line of its block, and its block's bytes (the variable total is the document's size).
+SCAN='
+function run(s, c,   n) {
+  n = 0
+  while (substr(s, n + 1, 1) == c) n++
+  return n
+}
+function close_to(lvl, last_line, at_byte,   h) {
+  while (depth > 0 && level[stack[depth]] >= lvl) {
+    h = stack[depth--]
+    last[h] = last_line
+    bytes[h] = at_byte - start[h]
+  }
+}
+{
+  indent = run($0, " ")
+  s = indent <= 3 ? substr($0, indent + 1) : $0
+  c = substr(s, 1, 1)
+  if (fence != "") {
+    if (c == fence) {
+      n = run(s, c)
+      if (n >= fence_len && substr(s, n + 1) ~ /^[ \t\r]*$/) fence = ""
+    }
+  } else if (c == "`" || c == "~") {
+    n = run(s, c)
+    if (n >= 3 && (c == "~" || index(substr(s, n + 1), "`") == 0)) {
+      fence = c
+      fence_len = n
+    }
+  } else if (match($0, /^#+[ \t]/) && RLENGTH <= 7) {
+    close_to(RLENGTH - 1, NR - 1, at)
+    heads++
+    top[heads] = (depth == 0)
+    line[heads] = NR
+    level[heads] = RLENGTH - 1
+    text[heads] = $0
+    start[heads] = at
+    stack[++depth] = heads
+  }
+  at += length($0) + 1
+}
+END { close_to(0, NR, total) }
+'
+
+# A record keeps its three sections, in order, whatever else it holds: moving one, or a top heading
+# that holds them, would take every block under it and leave a file add refuses.
+KEEPS='
+function is_section(t) {
+  return t == "## Binding" || t == "## Open" || t == "## Landed"
+}
+function keeps(h,   i, found) {
+  for (i = 1; i <= heads; i++) if (is_section(text[i])) found = found text[i]
+  return found == "## Binding## Open## Landed" && (level[h] == 1 || is_section(text[h]))
+}
+'
+
+# A whole heading line equal to the wanted text wins over containment, so a block whose heading
+# is contained in another's can still be named.
+RESOLVE='
+END {
+  n = split(ENVIRON["PROGRESS_WANTS"], want, "\n")
+  for (i = 1; i <= n; i++) {
+    hits = 0
+    exact = 0
+    names = ""
+    for (h = 1; h <= heads; h++) {
+      if (index(text[h], want[i])) {
+        hits++
+        pick[i] = h
+        names = names (hits > 1 ? " | " : "") line[h] ": " text[h]
+      }
+      if (text[h] == want[i]) {
+        exact++
+        whole = h
+      }
+    }
+    if (exact == 1) {
+      hits = 1
+      pick[i] = whole
+    }
+    if (hits == 0) {
+      print "no heading holds: " want[i]
+      exit 3
+    }
+    if (hits > 1) {
+      print "\"" want[i] "\" matches " hits " headings: " names
+      exit 3
+    }
+    if (keeps(pick[i])) {
+      print "\"" want[i] "\" is the whole section " text[pick[i]] ": name its blocks"
+      exit 3
+    }
+  }
+  for (i = 1; i <= n; i++) for (j = i + 1; j <= n; j++) {
+    if (line[pick[i]] <= last[pick[j]] && line[pick[j]] <= last[pick[i]]) {
+      print "\"" want[i] "\" and \"" want[j] "\" overlap: name the block once"
+      exit 3
+    }
+  }
+  print line[pick[1]], last[pick[1]]
+}
+'
+
+# Prints the first wanted heading's first and last line; exit 3 and a message when any wanted
+# text does not resolve to one block or two of them overlap.
+resolve() {
+  PROGRESS_WANTS=$2 awk "$SCAN$KEEPS$RESOLVE" < "$1"
+}
+
+# Records name their top headings differently, so the refusal prints this file's own command:
+# the top headings a move may take, as shell words, or nothing when no move can clear it (no
+# heading, or only loose lines beside the three sections).
+OLD_RECORD='
+END {
+  for (h = 1; h <= heads; h++) {
+    if (top[h] && !keeps(h)) {
+      word = text[h]
+      gsub(/\047/, "\047\\\047\047", word)
+      words = words " \047" word "\047"
+    }
+  }
+  printf "%s", words
+}
+'
+
+refuse_shape() {
+  words=$(awk "$SCAN$KEEPS$OLD_RECORD" < "$SNAP")
+  [ -z "$words" ] || die 6 "$FILE is not three sections and one-line blocks: dispatch a worker to run progress move $FILE$words and add what still binds"
+  die 6 "$FILE has lines that are not blocks: dispatch a worker to clear them by hand and add what still binds"
+}
+
+append_to_archive() {
+  fail="archive write failed on \"$1\": $FILE unchanged, the tail of $ARCHIVE may hold a partial block"
+  if [ ! -s "$ARCHIVE" ]; then
+    { printf '%s\n' "$ARCHIVE_HEAD" >> "$ARCHIVE"; } 2>/dev/null || die 5 "$fail"
+  fi
+  # A block that ended a file with no final newline left the tail open.
+  if [ -n "$(tail -c 1 "$ARCHIVE")" ]; then
+    { printf '\n' >> "$ARCHIVE"; } 2>/dev/null || die 5 "$fail"
+  fi
+  before=$(size "$ARCHIVE")
+  { cat "$BLOCK" >> "$ARCHIVE"; } 2>/dev/null || die 5 "$fail"
+  [ "$(size "$ARCHIVE")" -eq $((before + $2)) ] || die 5 "$fail"
+}
+
+# Works from one snapshot, so a writer outside the lock shows up only at the re-checksum. Every
+# retry re-reads it: a block changed in the window reaches the archive in both versions, and a
+# change elsewhere in FILE survives in the rest.
+move_block() {
+  tries=0
+  earlier=
+  while [ "$tries" -lt "$MOVE_TRIES" ]; do
+    tries=$((tries + 1))
+    cp -p "$FILE" "$SNAP" 2>/dev/null || die 4 "cannot read $FILE$earlier"
+    range=$(resolve "$SNAP" "$1") || die "$?" "$range$earlier"
+    first=${range% *}
+    last=${range#* }
+    sum=$(cksum < "$SNAP")
+
+    cp -p "$SNAP" "$REST"
+    {
+      [ "$first" -le 1 ] || head -n $((first - 1)) "$SNAP"
+      tail -n "+$((last + 1))" "$SNAP"
+    } > "$REST"
+    tail -n "+$first" "$SNAP" | head -n $((last - first + 1)) > "$BLOCK"
+    joined=$({
+      [ "$first" -le 1 ] || head -n $((first - 1)) "$REST"
+      cat "$BLOCK"
+      tail -n "+$first" "$REST"
+    } | cksum)
+    [ "$joined" = "$sum" ] || die 5 "proof failed on \"$1\": $FILE unchanged"
+
+    # With the newline before it, so text that merely ends a longer line is not this block.
+    tail_want=$({ printf '\n'; cat "$BLOCK"; } | cksum)
+    block_size=$(size "$BLOCK")
+    tail_size=$((block_size + 1))
+    tail_sum=$(tail -c "$tail_size" "$ARCHIVE" 2>/dev/null | cksum)
+    # Equal when a crashed run or an earlier try already archived this version.
+    [ "$tail_sum" = "$tail_want" ] || append_to_archive "$1" "$block_size"
+    tail_sum=$(tail -c "$tail_size" "$ARCHIVE" | cksum)
+    [ "$tail_sum" = "$tail_want" ] \
+      || die 5 "archive proof failed on \"$1\": $FILE unchanged, the tail of $ARCHIVE may hold a partial block"
+    earlier=": this block as it was is in $ARCHIVE"
+
+    if [ "$(cksum 2>/dev/null < "$FILE")" = "$sum" ]; then
+      mv -f "$REST" "$FILE" 2>/dev/null || die 5 "rename failed on \"$1\": the block is in $ARCHIVE and still in $FILE"
+      printf 'moved %s lines, %s bytes: %s\n' $((last - first + 1)) "$block_size" "$(head -n 1 "$BLOCK")"
+      return 0
+    fi
+  done
+  die 4 "$FILE kept changing through $MOVE_TRIES tries: \"$1\" is in $ARCHIVE and still in $FILE"
+}
+
+move() {
+  [ $# -ge 2 ] || die 2 "$USAGE"
+  FILE=$1
+  shift
+  check_target "$FILE"
+  [ -f "$FILE" ] || die 2 "no file $FILE"
+  wants=
+  for heading in "$@"; do
+    case $heading in
+      '' | *"$NL"*) die 2 "a heading argument is one line of text" ;;
+    esac
+    wants=$wants${wants:+$NL}$heading
+  done
+  dir=$(dirname "$FILE")
+  ARCHIVE=$dir/archive.md
+  # By file, not by name: a case-insensitive disk or a hard link makes another name the archive.
+  [ ! "$FILE" -ef "$ARCHIVE" ] || die 2 "$FILE is the archive itself"
+  take_lock "$dir"
+  # Resolved together before the first move, so a bad argument leaves FILE unchanged.
+  range=$(resolve "$FILE" "$wants") || die "$?" "$range"
+  for heading in "$@"; do
+    move_block "$heading"
+  done
+  printf '%s: %s bytes; archive.md: %s bytes\n' "${FILE##*/}" "$(size "$FILE")" "$(size "$ARCHIVE")"
+}
+
+add() {
+  [ $# -eq 3 ] || die 2 "$USAGE"
+  dir=$1
+  text=$3
+  case $2 in
+    binding) section='## Binding' ;;
+    open) section='## Open' ;;
+    landed) section='## Landed' ;;
+    *) die 2 "no kind $2: binding, open or landed" ;;
+  esac
+  case $text in
+    '') die 2 "empty text" ;;
+    *"$NL"* | *"$CR"*) die 2 "text is one line" ;;
+    '#'*) die 2 "text only: no leading #" ;;
+  esac
+  text_size=$(($(printf '%s' "$text" | wc -c)))
+  [ "$text_size" -le "$BYTE_CAP" ] \
+    || die 2 "$text_size bytes, cap $BYTE_CAP: the entry file holds detail, this line the outcome"
+  [ -d "$dir" ] || die 2 "no directory $dir"
+  FILE=$dir/progress.md
+  check_target "$FILE"
+  take_lock "$dir"
+
+  # Re-checksummed before the rename and redone on a change: a writer outside the lock keeps its
+  # bytes, as it does in move.
+  tries=0
+  while :; do
+    tries=$((tries + 1))
+    was=0
+    sum=
+    rm -f "$SNAP"
+    if [ -e "$FILE" ]; then
+      was=$(size "$FILE")
+      cp -p "$FILE" "$SNAP" 2>/dev/null || die 5 "cannot read $FILE"
+      sum=$(cksum < "$SNAP")
+    fi
+    if [ ! -s "$SNAP" ]; then printf '## Binding\n## Open\n## Landed\n' > "$SNAP"; fi
+    source_size=$(size "$SNAP")
+    expected=$((source_size + text_size + 5))
+    if [ -n "$(tail -c 1 "$SNAP")" ]; then expected=$((expected + 1)); fi
+
+    cp -p "$SNAP" "$REST"
+    PROGRESS_SECTION=$section PROGRESS_TEXT=$text awk '
+      BEGIN {
+        split("## Binding|## Open|## Landed", sections, "|")
+        target = ENVIRON["PROGRESS_SECTION"]
+        block = "### " ENVIRON["PROGRESS_TEXT"]
+      }
+      {
+        if (seen < 3 && $0 == sections[seen + 1]) {
+          if (seen > 0 && sections[seen] == target) print block
+          seen++
+        } else if (seen == 0 || substr($0, 1, 4) != "### ") {
+          bad = 1
+        } else if ($0 == block) {
+          duplicate = 1
+        }
+        print
+      }
+      END {
+        if (bad || seen < 3) exit 6
+        if (duplicate) exit 3
+        if (target == sections[3]) print block
+      }
+    ' < "$SNAP" > "$REST"
+    case $? in
+      0) ;;
+      6) refuse_shape ;;
+      3) die 3 "already there: $text" ;;
+      *) die 5 "could not write beside $FILE: unchanged" ;;
+    esac
+    [ "$(size "$REST")" -eq "$expected" ] || die 5 "proof failed: $FILE unchanged"
+
+    if [ "$(cksum 2>/dev/null < "$FILE")" = "$sum" ]; then break; fi
+    [ "$tries" -lt "$MOVE_TRIES" ] || die 4 "$FILE kept changing through $MOVE_TRIES tries: nothing added"
+  done
+  mv -f "$REST" "$FILE" 2>/dev/null || die 5 "rename failed: $FILE unchanged"
+
+  now=$(size "$FILE")
+  note=
+  if [ $((was / PASS_STEP)) -lt $((now / PASS_STEP)) ]; then
+    note=" | crossed a $((PASS_STEP / 1000)) KB step: dispatch the pass"
+  fi
+  printf '%s: %s bytes%s\n' "$2" "$now" "$note"
+}
+
+show() {
+  [ $# -eq 1 ] || die 2 "$USAGE"
+  [ -f "$1/progress.md" ] || die 2 "no file $1/progress.md"
+  cat "$1/progress.md"
+}
+
+list() {
+  [ $# -eq 1 ] || die 2 "$USAGE"
+  [ -f "$1" ] || die 2 "no file $1"
+  awk -v total="$(size "$1")" "$SCAN"'
+    END { for (h = 1; h <= heads; h++) print line[h] "\t" bytes[h] "\t" text[h] }
+  ' < "$1"
+}
+
+verb=${1:-}
+[ $# -eq 0 ] || shift
+case $verb in
+  add | move | show | list) "$verb" "$@" ;;
+  *) die 2 "$USAGE" ;;
+esac

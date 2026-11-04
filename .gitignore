@@ -1,0 +1,51 @@
+# The root and skills/ allow only what is published. Claude Code adds runtime state here with
+# every release (transcripts, credentials, daemon state), and personal skills land in skills/,
+# so a deny list lags them. A new published file or skill needs its own line here.
+/*
+!/.gitattributes
+!/.gitignore
+!/CLAUDE.md
+!/README.md
+!/RTK.md
+!/SHARE-README.md
+!/export-config.sh
+!/export-shared-config.sh
+!/settings.json
+!/statusline-command.sh
+!/agents/
+!/bin/
+!/contracts/
+!/hooks/
+!/rules/
+!/skills/
+
+skills/*
+!skills/audit/
+!skills/explain/
+!skills/handoff/
+!skills/instructions/
+!skills/memory-promote/
+!skills/orchestrator/
+!skills/prompt/
+!skills/research/
+!skills/review/
+!skills/workflow/
+!skills/writing-prompts/
+
+# Host addresses and logins
+rules/machines.md
+
+# Credentials and noise inside the published directories
+.env
+.env.*
+*.env
+.credentials*
+*.pem
+*.key
+.DS_Store
+*.log
+*.lock
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
